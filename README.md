@@ -1,55 +1,44 @@
-## **Encrypt: Go Cryptography Toolkit**
+# **encrypt \- Go Cryptography Toolkit**
 
-A lightweight, extensible, and secure Go cryptography package providing a unified interface for multiple encryption and hashing algorithms.  
-This package simplifies cryptographic operations by automatically handling nonces, initial value (IV) generation, and algorithm identification. By prepending a unique 3-byte prefix to generated ciphertexts and hashes, encrypt enables seamless decryption and password comparison without requiring you to store the encryption mode or hashing algorithm separately in your database.
+The encrypt package is a lightweight, extensible, and secure Go cryptography library providing a unified interface for multiple encryption and hashing algorithms.  
+By prepending a unique 3-byte prefix to generated ciphertexts and hashes, this package enables seamless decryption and password comparison without requiring you to separately store the encryption mode or hashing algorithm in your database.
 
-### **Key Features**
+## **Key Features**
 
-* **Unified API:** Use standard Encrypt(), Decrypt(), CreateHash(), and CompareHash() functions across all supported algorithms.  
-* **Smart Auto-Prefixing:** Ciphertexts and hashes automatically include a 3-byte identifier (e.g., x0F for AES-GCM) for automatic mode detection during decryption and comparison.  
-* **Authenticated Encryption:** Native support for modern AEAD ciphers and Branca tokens with optional TTL expirations.  
-* **Secure Hashing:** Configurable password hashing with Argon2id and Bcrypt, plus fast checksums via SHA-256.  
-* **Timing Attack Prevention:** Implements subtle.ConstantTimeCompare for safe, constant-time hash verification.
+* **Unified Interface:** Standardized Encrypt(), Decrypt(), CreateHash(), and CompareHash() functions across all supported algorithms.  
+* **Smart Auto-Prefixing:** Ciphertexts and hashes automatically include a 3-byte identifier (e.g., x0F for AES-GCM). The Decrypt and CompareHash functions read this prefix to automatically determine the correct algorithm.  
+* **Authenticated Encryption:** Native support for modern AEAD ciphers (AES-GCM, XChaCha20-Poly1305) and Branca tokens. Branca tokens support optional TTL expirations.  
+* **Custom AEAD Support:** The Cipher mode allows you to wrap any standard cipher.AEAD implementation.  
+* **Secure Hashing:** Configurable password hashing using Argon2id and Bcrypt.  
+* **Timing Attack Prevention:** Implements subtle.ConstantTimeCompare for safe, constant-time hash verification when using SHA-256.
 
-### **Supported Algorithms**
+## **Installation**
 
-**Encryption Modes:**
-
-* AES-256 (CFB Mode)  
-* AES-256-GCM  
-* XChaCha20-Poly1305  
-* Branca (Authenticated Encrypted API Tokens)  
-* Custom AEAD Implementations (EncryptModeCipher)
-
-**Hashing Algorithms:**
-
-* Argon2id (Supports fully customizable parameters like memory, iterations, and parallelism)  
-* Bcrypt (Supports configurable cost factors)  
-* SHA-256
-
-### **Prefix Identifiers Reference**
-
-The package uses the following internal prefixes to seamlessly route decryption and validation requests:
-
-| Algorithm | Operation | Prefix |
-| :---- | :---- | :---- |
-| AES-256 (CFB) | Encryption | x00 |
-| AES-256-GCM | Encryption | x0F |
-| XChaCha20-Poly1305 | Encryption | x10 |
-| Branca | Encryption | x11 |
-| Custom AEAD Cipher | Encryption | hc1 |
-| Bcrypt | Hashing | h00 |
-| Argon2id | Hashing | h0F |
-| SHA-256 | Hashing | h10 |
-
-### **Installation**
+You can install this package using go get:
 
 Bash  
 go get github.com/pat3icki/pennychoice/pkg/encrypt
 
-### **Quick Start Examples**
+## **Supported Algorithms & Prefixes**
 
-#### **1\. Encryption & Decryption**
+The package uses the following internal 3-byte prefixes to seamlessly route decryption and validation requests:
+
+| Algorithm | Operation | Prefix | Mode Constant |
+| :---- | :---- | :---- | :---- |
+| **AES-256 (CFB)** | Encryption | x00 | EncryptModeAES256  |
+| **AES-256-GCM** | Encryption | x0F | EncryptModeAES256GCM  |
+| **XChaCha20-Poly1305** | Encryption | x10 | EncryptModeXChaCha\_Poly1305  |
+| **Branca** | Encryption | x11 | EncryptModeBranca  |
+| **Custom AEAD Cipher** | Encryption | hc1 | EncryptModeCipher  |
+| **Bcrypt** | Hashing | h00 | HashAlgBcrypt  |
+| **Argon2id** | Hashing | h0F | HashAlgArgon2  |
+| **SHA-256** | Hashing | h10 | HashAlgSHA256  |
+
+## **Usage Examples**
+
+### **1\. Encryption & Decryption**
+
+The package handles secure nonce and Initialization Vector (IV) generation automatically using crypto/rand.
 
 Go  
 package main
@@ -61,29 +50,32 @@ import (
 )
 
 func main() {  
-	key := \[\]byte("12345678901234567890123456789012") // Must be 32 bytes  
-	data := \[\]byte("top secret message")
+	// Key must be exactly 32 bytes for AES-256, XChaCha20-Poly1305, and Branca.  
+	key := \[\]byte("12345678901234567890123456789012")   
+	data := \[\]byte("hello, secret world\!") //\[cite: 2\]
 
-	// Initialize your chosen mode  
-	mode := \&encrypt.AES\_GCM{Key: key}
+	// Initialize your chosen mode (e.g., AES-GCM)  
+	mode := \&encrypt.AES\_GCM{Key: key} //\[cite: 2\]
 
 	// Encrypt the data  
-	ciphertext, err := encrypt.Encrypt(mode, data)  
+	ciphertext, err := encrypt.Encrypt(mode, data) //\[cite: 2\]  
 	if err \!= nil {  
 		log.Fatalf("Encryption failed: %v", err)  
 	}
 
-	// Decrypt (The package automatically validates the prefix)  
-	plaintext, decMode, err := encrypt.Decrypt(mode, ciphertext)  
+	// Decrypt (The package automatically reads the 'x0F' prefix to route the decryption)  
+	plaintext, decMode, err := encrypt.Decrypt(mode, ciphertext) //\[cite: 2\]  
 	if err \!= nil {  
 		log.Fatalf("Decryption failed: %v", err)  
 	}
 
 	fmt.Printf("Decrypted: %s\\n", plaintext)  
-	fmt.Printf("Used Mode: %v\\n", decMode)  
+	fmt.Printf("Detected Mode: %v\\n", decMode)  
 }
 
-#### **2\. Password Hashing & Verification**
+### **2\. Password Hashing & Verification**
+
+You can easily hash passwords using algorithms like Argon2id. The CreateHash function takes generic options (opts), which accept a pointer to Argon2Params for Argon2id, or an int cost factor for Bcrypt.
 
 Go  
 package main
@@ -95,18 +87,18 @@ import (
 )
 
 func main() {  
-	password := \[\]byte("super\_secure\_password")
+	password := \[\]byte("my\_super\_secure\_password") //\[cite: 3\]
 
-	// Hash using Argon2id with default secure parameters  
-	hashed, err := encrypt.CreateHash(encrypt.HashAlgArgon2, password, (\*encrypt.Argon2Params)(nil))  
+	// Hash using Argon2id. Passing nil uses DefaultArgon2Params\[cite: 1, 3\].  
+	hashed, err := encrypt.CreateHash(encrypt.HashAlgArgon2, password, (\*encrypt.Argon2Params)(nil)) //\[cite: 3\]  
 	if err \!= nil {  
 		log.Fatalf("Hashing failed: %v", err)  
 	}
 
 	// Compare password (reads the 'h0F' prefix to know it should use Argon2id)  
-	err \= encrypt.CompareHash(password, hashed)  
+	err \= encrypt.CompareHash(password, hashed) //\[cite: 3\]  
 	if err \!= nil {  
-		if err \== encrypt.ErrInvalidCredentials {  
+		if err \== encrypt.ErrInvalidCredentials { //  
 			log.Fatal("Invalid password\!")  
 		}  
 		log.Fatal(err)  
@@ -115,7 +107,17 @@ func main() {
 	fmt.Println("Password matched successfully\!")  
 }
 
-### **Security Notes**
+### **3\. Simple SHA-256 Checksum**
 
-* Always ensure encryption keys are kept secure and are exactly 32 bytes long for AES-256, XChaCha20-Poly1305, and Branca implementations.  
-* Cryptographically secure random nonces and Initialization Vectors (IVs) are automatically generated using crypto/rand under the hood during every encryption call.
+If you just need a quick hex-encoded SHA-256 digest, you can use the CheckSum utility\[cite: 1\]:
+
+Go  
+data := \[\]byte("hello") //\[cite: 3\]  
+checksum := encrypt.CheckSum(data) //\[cite: 3\]  
+// returns: "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"\[cite: 3\]
+
+## **Security Considerations**
+
+* **Key Length:** Always ensure encryption keys are exactly 32 bytes long for AES256, XChaCha\_Poly1305, and Branca\[cite: 1\].  
+* **Ciphertext Length:** Decryption functions will return an error if the cipher data is shorter than the 3-byte prefix length\[cite: 1\].  
+* **Argon2id Defaults:** The DefaultArgon2Params use 64 MiB of memory, 1 iteration, parallelism based on runtime.NumCPU(), a 16-byte salt, and a 32-byte key\[cite: 1\].
