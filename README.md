@@ -1,5 +1,5 @@
  
-# encrypt - Go Cryptography Toolkit
+# Encrypt - Go Cryptography Toolkit
 
 The `encrypt` package is a lightweight, extensible, and secure Go cryptography library providing a unified interface for multiple encryption and hashing algorithms.  
 By prepending a unique 3-byte prefix to generated ciphertexts and hashes, this package enables seamless decryption and password comparison without requiring you to separately store the encryption mode or hashing algorithm in your database.
