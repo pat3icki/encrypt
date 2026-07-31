@@ -32,9 +32,9 @@ The package uses the following internal 3-byte prefixes to seamlessly route decr
 | **XChaCha20-Poly1305** | Encryption | `x10` | `EncryptModeXChaCha_Poly1305` |
 | **Branca** | Encryption | `x11` | `EncryptModeBranca` |
 | **Custom AEAD Cipher** | Encryption | `hc1` | `EncryptModeCipher` |
-| **Bcrypt** | Hashing | `h00` | `HashAlgBcrypt` |
-| **Argon2id** | Hashing | `h0F` | `HashAlgArgon2` |
-| **SHA-256** | Hashing | `h10` | `HashAlgSHA256` |
+| **Bcrypt** | Hashing | `h00` | `HashModeBcrypt` |
+| **Argon2id** | Hashing | `h0F` | `HashModeArgon2` |
+| **SHA-256** | Hashing | `h10` | `HashModeSHA256` |
 
 ## Usage Examples
 
@@ -95,7 +95,7 @@ func main() {
 	password := []byte("my_super_secure_password")
 
 	// Hash using Argon2id. Passing nil uses DefaultArgon2Params.
-	hashed, err := encrypt.CreateHash(encrypt.HashAlgArgon2, password, (*encrypt.Argon2Params)(nil))
+	hashed, err := encrypt.CreateHash(encrypt.HashModeArgon2, password, (*encrypt.Argon2Params)(nil))
 	if err != nil {
 		log.Fatalf("Hashing failed: %v", err)
 	}
@@ -154,12 +154,11 @@ type Encryptor interface {
 ### Hashing Types
 
 ```go
-type HashType int
 
 const (
-    HashAlgBcrypt HashType = iota
-    HashAlgArgon2
-    HashAlgSHA256
+    HashModeBcrypt 
+    HashModeArgon2
+    HashModeSHA256
 )
 
 type Argon2Params struct {
@@ -175,7 +174,7 @@ type Argon2Params struct {
 
 | Function | Signature | Description |
 |----------|-----------|-------------|
-| `CreateHash` | `CreateHash[T Hashable](mode HashType, data []byte, opts T) ([]byte, error)` | Creates a prefixed hash using the specified algorithm |
+| `CreateHash` | `CreateHash[T Hashable](mode Mode, data []byte, opts T) ([]byte, error)` | Creates a prefixed hash using the specified algorithm |
 | `CompareHash` | `CompareHash(data []byte, hashed_data []byte) error` | Verifies data against a prefixed hash |
 
 ### Generic Constraints
@@ -184,9 +183,9 @@ The `CreateHash` function accepts the following generic types via the `Hashable`
 
 | Algorithm | `opts` Type | Description |
 |-----------|-------------|-------------|
-| `HashAlgBcrypt` | `int` | The cost factor (e.g., 10-14) |
-| `HashAlgArgon2` | `*Argon2Params` | Argon2id parameters (pass `nil` for defaults) |
-| `HashAlgSHA256` | `int` | Ignored placeholder |
+| `HashModeBcrypt` | `int` | The cost factor (e.g., 10-14) |
+| `HashModeArgon2` | `*Argon2Params` | Argon2id parameters (pass `nil` for defaults) |
+| `HashModeSHA256` | `int` | Ignored placeholder |
 
 ### Default Argon2id Parameters
 
