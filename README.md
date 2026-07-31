@@ -49,7 +49,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pat3icki/pennychoice/pkg/encrypt"
+	"github.com/pat3icki/encrypt"
 )
 
 func main() {
@@ -88,7 +88,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pat3icki/pennychoice/pkg/encrypt"
+	"github.com/pat3icki/encrypt"
 )
 
 func main() {
