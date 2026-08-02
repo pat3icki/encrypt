@@ -2,14 +2,9 @@ package encrypt
 
 import (
 	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/hex"
 	"errors"
 	"runtime"
-	"unsafe"
-
-	"github.com/alexedwards/argon2id"
-	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -46,7 +41,7 @@ func init() {
 		EncryptModeBranca:           "x11",
 
 		HashModeArgon2: "h0F",
-		HashModeBcrypt: "h00",
+		HashModeBcrypt: "h0X",
 		HashModeSHA256: "h10",
 	}
 
@@ -73,7 +68,7 @@ func Decrypt(mode Encryptor, data []byte) ([]byte, Mode, error) {
 	return plaintext, mode.Mode(), nil
 }
 
-type Argon2Params struct {
+type Argon2 struct {
 	// The amount of memory used by the algorithm (in kibibytes).
 	Memory uint32
 
@@ -91,7 +86,7 @@ type Argon2Params struct {
 	KeyLength uint32
 }
 
-var DefaultArgon2Params = &Argon2Params{
+var DefaultArgon2Params = Argon2{
 	Memory:      64 * 1024,
 	Iterations:  1,
 	Parallelism: uint8(runtime.NumCPU()),
@@ -99,61 +94,12 @@ var DefaultArgon2Params = &Argon2Params{
 	KeyLength:   32,
 }
 
-type Hashable interface {
-	int | *Argon2Params
-}
-
 // CreateHash creates a hash of the data using the specified hash algorithm.
-// The opts parameter must be either:
-//   - int: the cost factor for bcrypt (HashAlgBcrypt)
-//   - *Argon2Params: the parameters for Argon2id (HashAlgArgon2)
-//   - int: ignored parameter for HashAlgSHA256
-func CreateHash[T Hashable](mode Mode, data []byte, opts T) ([]byte, error) {
-	var ret = make([]byte, 0, 20)
-	prefixValue := getPrefix(mode)
-
-	switch mode {
-	case HashModeBcrypt:
-		v, bol := any(opts).(int)
-		if !bol {
-			return nil, errors.New("expecting an integer value for HashModeBcrypt")
-		}
-		b, err := bcrypt.GenerateFromPassword(data, v)
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, []byte(prefixValue)...)
-		ret = append(ret, b...)
-		return ret, nil
-
-	case HashModeArgon2:
-		v, bol := any(opts).(*Argon2Params)
-		if !bol {
-			return nil, errors.New("expecting a pointer to Argon2Params value for HashModeArgon2")
-		}
-		if v == nil {
-			v = DefaultArgon2Params
-		}
-		h, err := argon2id.CreateHash(BytesToString(data), (*argon2id.Params)(unsafe.Pointer(v)))
-		if err != nil {
-			return nil, err
-		}
-		ret = append(ret, []byte(prefixValue)...)
-		ret = append(ret, []byte(h)...)
-		return ret, nil
-
-	case HashModeSHA256:
-		// SHA256 does not strictly require cost/params like Bcrypt or Argon2
-		hash := sha256.Sum256(data)
-		ret = append(ret, []byte(prefixValue)...)
-		ret = append(ret, hash[:]...)
-		return ret, nil
-
-	default:
-		return nil, errors.New("unsupported hash mode")
-	}
+func CreateHash(hasher Hasher, data []byte) ([]byte, error) {
+	return hasher._hash(data)
 }
 
+// TODO: UPDATE
 func CompareHash(data []byte, hashed_data []byte) error {
 	if len(hashed_data) < prefixLen {
 		return errors.New("hashed data too short")
@@ -161,23 +107,9 @@ func CompareHash(data []byte, hashed_data []byte) error {
 
 	switch getPrefixMode(string(hashed_data[:prefixLen])) {
 	case HashModeBcrypt:
-		return bcrypt.CompareHashAndPassword(hashed_data[prefixLen:], data)
+		return (Bcrypt{})._compare(data, hashed_data)
 	case HashModeArgon2:
-		match, err := argon2id.ComparePasswordAndHash(BytesToString(data), BytesToString(hashed_data[prefixLen:]))
-		if err != nil {
-			return err
-		}
-		if !match {
-			return ErrInvalidCredentials
-		}
-		return nil
-	case HashModeSHA256:
-		hash := sha256.Sum256(data)
-		// Use subtle.ConstantTimeCompare to avoid timing attacks
-		if subtle.ConstantTimeCompare(hash[:], hashed_data[prefixLen:]) != 1 {
-			return ErrInvalidCredentials
-		}
-		return nil
+		return (Argon2{})._compare(data, hashed_data)
 	default:
 		return errors.New("unsupported hash type")
 	}

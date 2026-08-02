@@ -2,7 +2,10 @@ package encrypt
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 func TestCheckSum(t *testing.T) {
@@ -18,7 +21,6 @@ func TestCheckSum(t *testing.T) {
 func TestHashing(t *testing.T) {
 	prefixBcrypt := getPrefix(HashModeBcrypt)
 	prefixArgon2 := getPrefix(HashModeArgon2)
-	prefixSHA256 := getPrefix(HashModeSHA256)
 
 	data := []byte("my_super_secure_password")
 	wrongData := []byte("wrong_password")
@@ -31,7 +33,7 @@ func TestHashing(t *testing.T) {
 		{
 			name: "Bcrypt",
 			hashFunc: func() ([]byte, error) {
-				return CreateHash(HashModeBcrypt, data, 10) // cost 10
+				return CreateHash(Bcrypt{bcrypt.MinCost}, data) // cost 10
 			},
 			expectPrefix: prefixBcrypt,
 		},
@@ -39,16 +41,9 @@ func TestHashing(t *testing.T) {
 			name: "Argon2",
 			hashFunc: func() ([]byte, error) {
 				// use default params
-				return CreateHash(HashModeArgon2, data, (*Argon2Params)(nil))
+				return CreateHash(Argon2{}, data)
 			},
 			expectPrefix: prefixArgon2,
-		},
-		{
-			name: "SHA256",
-			hashFunc: func() ([]byte, error) {
-				return CreateHash(HashModeSHA256, data, 0)
-			},
-			expectPrefix: prefixSHA256,
 		},
 	}
 
@@ -62,6 +57,8 @@ func TestHashing(t *testing.T) {
 			if !bytes.HasPrefix(hashedData, []byte(tt.expectPrefix)) {
 				t.Errorf("Expected prefix %q, got %q", tt.expectPrefix, hashedData[:prefixLen])
 			}
+			fmt.Println(string(hashedData))
+			fmt.Println(string(hashedData[prefixLen:]))
 
 			// Correct password
 			if err := CompareHash(data, hashedData); err != nil {

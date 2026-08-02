@@ -31,6 +31,7 @@ func getPrefixMode(str string) Mode {
 
 type Encryptor interface {
 	Mode() Mode
+	Prefix() string
 	_encrypt(data []byte) ([]byte, error)
 	_decrypt(cipher []byte) ([]byte, error)
 }
@@ -42,6 +43,9 @@ type Branca struct {
 
 func (b *Branca) Mode() Mode {
 	return EncryptModeBranca
+}
+func (b *Branca) Prefix() string {
+	return getPrefix(b.Mode())
 }
 
 func (b *Branca) _encrypt(data []byte) ([]byte, error) {
@@ -83,6 +87,10 @@ type AES_GCM struct {
 
 func (*AES_GCM) Mode() Mode {
 	return EncryptModeAESGCM
+}
+
+func (ag *AES_GCM) Prefix() string {
+	return getPrefix(ag.Mode())
 }
 
 func (ag *AES_GCM) _encrypt(data []byte) ([]byte, error) {
@@ -139,6 +147,10 @@ func (*XChaCha_Poly1305) Mode() Mode {
 	return EncryptModeXChaCha_Poly1305
 }
 
+func (xcha *XChaCha_Poly1305) Prefix() string {
+	return getPrefix(xcha.Mode())
+}
+
 func (xcha *XChaCha_Poly1305) _encrypt(data []byte) ([]byte, error) {
 	prefixXChaCha := getPrefix(xcha.Mode())
 
@@ -181,6 +193,10 @@ type Cipher struct {
 
 func (c *Cipher) Mode() Mode {
 	return EncryptModeCipher
+}
+
+func (c *Cipher) Prefix() string {
+	return getPrefix(c.Mode())
 }
 
 func (c *Cipher) _encrypt(data []byte) ([]byte, error) {
