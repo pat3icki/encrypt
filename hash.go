@@ -1,6 +1,8 @@
 package encrypt
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"unsafe"
 
 	"github.com/alexedwards/argon2id"
@@ -77,4 +79,10 @@ func (ag Argon2) _compare(text []byte, hash []byte) error {
 	}
 	return nil
 
+}
+
+// Hash computes the SHA-256 digest of the input data and returns it as a hex string.
+func CheckSum(data []byte) string {
+	hash := sha256.Sum256(data)
+	return hex.EncodeToString(hash[:])
 }

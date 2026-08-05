@@ -1,9 +1,8 @@
 package encrypt
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
+	"fmt"
 	"runtime"
 )
 
@@ -11,18 +10,20 @@ var (
 	ErrInvalidCredentials = errors.New("crypto hashing: hashedPassword is not the hash of the given password")
 )
 
-// Hash computes the SHA-256 digest of the input data and returns it as a hex string.
-func CheckSum(data []byte) string {
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
+type Encryptor interface {
+	Mode() Mode
+	Prefix() string
+	_encrypt(data []byte) ([]byte, error)
+	_decrypt(cipher []byte) ([]byte, error)
 }
 
 type Mode int
 
 const (
-	EncryptModeAESGCM           Mode = iota // Prefix: x0F (using GCM mode)
-	EncryptModeXChaCha_Poly1305             // Prefix: x10
-	EncryptModeBranca                       // Prefix: x11
+	NoneMode                    Mode = iota
+	EncryptModeAESGCM                // Prefix: x0F (using GCM mode)
+	EncryptModeXChaCha_Poly1305      // Prefix: x10
+	EncryptModeBranca                // Prefix: x11
 	EncryptModeCipher
 
 	HashModeBcrypt
@@ -38,7 +39,8 @@ func init() {
 	prefixes = map[Mode]string{
 		EncryptModeAESGCM:           "x0F",
 		EncryptModeXChaCha_Poly1305: "x10",
-		EncryptModeBranca:           "x11",
+		EncryptModeBranca:           "x13",
+		EncryptModeCipher:           "hc1",
 
 		HashModeArgon2: "h0F",
 		HashModeBcrypt: "h0X",
@@ -48,7 +50,6 @@ func init() {
 }
 
 // Encrypt encrypts data based on the selected mode and prepends a 3-character identifier.
-// Note: key must be exactly 32 bytes for AES-256, XChaCha20-Poly1305, and Branca.
 func Encrypt(mode Encryptor, data []byte) ([]byte, error) {
 	return mode._encrypt(data)
 }
@@ -59,8 +60,12 @@ func Decrypt(mode Encryptor, data []byte) ([]byte, Mode, error) {
 	if len(data) < prefixLen {
 		return nil, 0, errors.New("cipher data is too short")
 	}
+	if getPrefix(mode.Mode()) != string(data[:prefixLen]) {
+		// fmt.Println(string(data[:prefixLen]))
+		return nil, NoneMode, fmt.Errorf("invaild encryptor: %s", data[:prefixLen])
+	}
 
-	plaintext, err := mode._decrypt(data)
+	plaintext, err := mode._decrypt(data[prefixLen:])
 	if err != nil {
 		return nil, 0, err
 	}
